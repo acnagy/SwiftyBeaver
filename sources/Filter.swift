@@ -48,7 +48,7 @@ public class Filter {
         case Equals([String], Bool)
     }
 
-    let targetType: Filter.TargetType
+    let targetType: TargetType
     let required: Bool
 
     public init(target: Filter.TargetType, required: Bool) {
@@ -131,30 +131,26 @@ public class CompareFilter: Filter, FilterType {
             case let .Contains(strings, caseSensitive):
                 matches = !strings.filter {
                     string in
-                    return caseSensitive ? value.containsString(string) :
-                        value.lowercaseString.containsString(string.lowercaseString)
+                    return caseSensitive ? value.contains(string) : value.lowercased().contains(string.lowercased())
                 }.isEmpty
 
 
             case let .StartsWith(strings, caseSensitive):
                 matches = !strings.filter {
                     string in
-                    return caseSensitive ? value.hasPrefix(string) :
-                        value.lowercaseString.hasPrefix(string.lowercaseString)
+                    return caseSensitive ? value.hasPrefix(string) : value.lowercased().hasPrefix(string.lowercased())
                 }.isEmpty
 
             case let .EndsWith(strings, caseSensitive):
                 matches = !strings.filter {
                     string in
-                    return caseSensitive ? value.hasSuffix(string) :
-                        value.lowercaseString.hasSuffix(string.lowercaseString)
+                    return caseSensitive ? value.hasSuffix(string) : value.lowercased().hasSuffix(string.lowercased())
                 }.isEmpty
 
             case let .Equals(strings, caseSensitive):
                 matches = !strings.filter {
                     string in
-                    return caseSensitive ? value == string :
-                        value.lowercaseString == string.lowercaseString
+                    return caseSensitive ? value == string : value.lowercased() == string.lowercased()
                 }.isEmpty
         }
 

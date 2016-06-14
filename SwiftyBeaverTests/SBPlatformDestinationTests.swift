@@ -73,13 +73,13 @@ class SBPlatformDestinationTests: XCTestCase {
         if let str = str {
             XCTAssertEqual(str.characters.first, "{")
             XCTAssertEqual(str.characters.last, "}")
-            XCTAssertNotNil(str.rangeOfString("\"line\":123"))
-            XCTAssertNotNil(str.rangeOfString("\"message\":\"test message\\nNewlineäößø\""))
-            XCTAssertNotNil(str.rangeOfString("\"fileName\":\"path.swift\""))
-            XCTAssertNotNil(str.rangeOfString("\"timestamp\":"))
-            XCTAssertNotNil(str.rangeOfString("\"level\":0"))
-            XCTAssertNotNil(str.rangeOfString("\"thread\":\"\""))
-            XCTAssertNotNil(str.rangeOfString("\"function\":\"TestFunction()\""))
+            XCTAssertNotNil(str.range(of: "\"line\":123"))
+            XCTAssertNotNil(str.range(of: "\"message\":\"test message\\nNewlineäößø\""))
+            XCTAssertNotNil(str.range(of: "\"fileName\":\"path.swift\""))
+            XCTAssertNotNil(str.range(of: "\"timestamp\":"))
+            XCTAssertNotNil(str.range(of: "\"level\":0"))
+            XCTAssertNotNil(str.range(of: "\"thread\":\"\""))
+            XCTAssertNotNil(str.range(of: "\"function\":\"TestFunction()\""))
         }
     }
 
@@ -110,8 +110,8 @@ class SBPlatformDestinationTests: XCTestCase {
         let correctURL = platform.serverURL
 
         // invalid address
-        platform.serverURL = NSURL(string: "https://notexisting.swiftybeaver.com")!
-        let exp = expectationWithDescription("returns false due to invalid URL")
+        platform.serverURL = NSURL(string: "https://notexisting.swiftybeaver.com")! as URL
+        let exp = expectation(withDescription: "returns false due to invalid URL")
 
         platform.sendToServerAsync(jsonStr) {
             ok, status in
@@ -123,7 +123,7 @@ class SBPlatformDestinationTests: XCTestCase {
         // invalid app ID
         platform.serverURL = correctURL
         platform.appID = "abc"
-        let exp2 = expectationWithDescription("returns false due to invalid app ID")
+        let exp2 = expectation(withDescription: "returns false due to invalid app ID")
 
         platform.sendToServerAsync(jsonStr) {
             ok, status in
@@ -135,7 +135,7 @@ class SBPlatformDestinationTests: XCTestCase {
         // invalid secret
         platform.appID = Secrets.Platform.appID
         platform.appSecret += "invalid"
-        let exp3 = expectationWithDescription("returns false due to invalid secret")
+        let exp3 = expectation(withDescription: "returns false due to invalid secret")
 
         platform.sendToServerAsync(jsonStr) {
             ok, status in
@@ -158,12 +158,13 @@ class SBPlatformDestinationTests: XCTestCase {
             exp4.fulfill()
         }
         */
-        waitForExpectationsWithTimeout(5, handler: nil)
+        waitForExpectations(withTimeout: 5, handler: nil)
+
     }
 
     func testIntegration() {
         let log = SwiftyBeaver.self
-        let formatter = NSDateFormatter()
+        let formatter = DateFormatter()
 
         // add logging to SwiftyBeaver Platform
         platform.showNSLog = true
@@ -179,7 +180,7 @@ class SBPlatformDestinationTests: XCTestCase {
             return
         }
 
-        log.addDestination(platform)
+        XCTAssertTrue(log.addDestination(platform))
         //XCTAssertEqual(log.countDestinations(), 2)
 
         // send logs in chunks, use high threshold value to test performance
@@ -193,10 +194,12 @@ class SBPlatformDestinationTests: XCTestCase {
             }
 
             formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
-            let dateStr = formatter.stringFromDate(NSDate())
+            let dateStr = formatter.string(from: NSDate() as Date)
+
             log.debug("msg \(index) - \(dateStr)")
         }
-        log.flush(3)
+        XCTAssertTrue(log.flush(secondTimeout: 3))
+
         // do some further waiting for sending to complete
         for _ in 1...platform.sendingPoints.Threshold + 3 {
             // simulate work by doing a computing
@@ -213,7 +216,7 @@ class SBPlatformDestinationTests: XCTestCase {
         XCTAssertEqual(device["os"], OS)
         XCTAssertGreaterThan(device["os"]!.characters.count, 0)
         XCTAssertGreaterThan(device["osVersion"]!.characters.count, 4)
-        XCTAssertEqual(device["hostName"], NSProcessInfo.processInfo().hostName)
+        XCTAssertEqual(device["hostName"], ProcessInfo.processInfo().hostName)
         XCTAssertEqual(device["deviceName"], DEVICE_NAME)
         XCTAssertEqual(device["deviceModel"], DEVICE_MODEL)
         //NSLog(stats)
@@ -243,6 +246,7 @@ class SBPlatformDestinationTests: XCTestCase {
         if let userName = dict["userName"] as? String {
             XCTAssertEqual(userName, "")
         }
+
         XCTAssertTrue(platform.saveDictToFile(dict, url: platform.analyticsFileURL))
 
         // set userName
@@ -259,7 +263,7 @@ class SBPlatformDestinationTests: XCTestCase {
     /// helper function to delete temp file before test
     func deleteFile(url: NSURL) -> Bool {
         do {
-            try NSFileManager.defaultManager().removeItemAtURL(url)
+            try FileManager.default().removeItem(at: url as URL)
             return true
         } catch let error {
             NSLog("Unit test: could not delete file \(url). \(error)")
