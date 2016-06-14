@@ -1,12 +1,12 @@
 # uses xcodebuild and xcpretty to test Swift snapshots
 # on local Mac use the following command to set xcodebuild to use Xcode Beta
 # sudo xcode-select -s /Applications/Xcode-Beta.app/Contents/Developer
-os:
-- osx
+os: osx
+dist: osx
+osx_image: xcode8
 sudo: required
 xcode_project: SwiftyBeaver.xcodeproj
 xcode_scheme: SwiftyBeaver (iOS)
-osx_image: xcode8
 xcode_sdk: iphonesimulator10.0
 before_install:
 - gem install xcpretty
