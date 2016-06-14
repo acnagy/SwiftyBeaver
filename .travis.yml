@@ -16,10 +16,10 @@ xcode_scheme: SwiftyBeaver (iOS)
 xcode_sdk: iphonesimulator8.4
 
 before_install:
-- gem install xcpretty
-- - export IOS_SIMULATOR_UDID=`instruments -s devices | grep "iPhone 6 (9.3" | awk -F '[ ]' '{print $4}' | awk -F '[\[]' '{print $2}' | sed 's/.$//'`
+- export IOS_SIMULATOR_UDID=`instruments -s devices | grep "iPhone 6 (9.3" | awk -F '[ ]' '{print $4}' | awk -F '[\[]' '{print $2}' | sed 's/.$//'`
 - echo $IOS_SIMULATOR_UDID
 - open -a "simulator" --args -CurrentDeviceUDID $IOS_SIMULATOR_UDID
+- gem install xcpretty
 
 script:
   - set -o pipefail  # required to let xcpretty use the same exit code like xcodebuild
