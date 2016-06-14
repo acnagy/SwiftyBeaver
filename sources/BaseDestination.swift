@@ -20,11 +20,17 @@ let OS = "watchOS"
 let OS = "tvOS"
 #elseif os(Linux)
 let OS = "Linux"
+#elseif os(FreeBSD)
+let OS = "FreeBSD"
+#elseif os(Windows)
+let OS = "Windows"
+#elseif os(Android)
+let OS = "Android"
 #else
 let OS = "Unknown"
 #endif
 
-@available(*, deprecated=0.5.5)
+@available(*, deprecated:0.5.5)
 struct MinLevelFilter {
     var minLevel = SwiftyBeaver.Level.Verbose
     var path = ""
@@ -46,7 +52,7 @@ public class BaseDestination: Hashable, Equatable {
     public var minLevel = SwiftyBeaver.Level.Verbose {
         didSet {
             // Craft a new level filter and add it
-            self.addFilter(Filters.Level.atLeast(minLevel))
+            self.addFilter(filter: Filters.Level.atLeast(level: minLevel))
         }
     }
     /// standard log format; set to "" to not log date at all
@@ -76,7 +82,7 @@ public class BaseDestination: Hashable, Equatable {
 
     var minLevelFilters = [MinLevelFilter]()
     var filters = [FilterType]()
-    let formatter = NSDateFormatter()
+    let formatter = DateFormatter()
 
     var reset = "\u{001b}[;"
     var escape = "\u{001b}["
@@ -87,17 +93,17 @@ public class BaseDestination: Hashable, Equatable {
 
     // each destination instance must have an own serial queue to ensure serial output
     // GCD gives it a prioritization between User Initiated and Utility
-    var queue: dispatch_queue_t?
+    var queue: DispatchQueue? //dispatch_queue_t?
 
     public init() {
-        let uuid = NSUUID().UUIDString
+        let uuid = NSUUID().uuidString
         let queueLabel = "swiftybeaver-queue-" + uuid
-        queue = dispatch_queue_create(queueLabel, DISPATCH_QUEUE_SERIAL)
-        addFilter(Filters.Level.atLeast(minLevel))
+        queue = DispatchQueue(label: queueLabel, attributes: .serial, target: queue)
+        addFilter(filter: Filters.Level.atLeast(level: minLevel))
     }
 
     /// overrule the destination’s minLevel for a given path and optional function
-    @available(*, deprecated=0.5.5)
+    @available(*, deprecated:0.5.5)
     public func addMinLevelFilter(minLevel: SwiftyBeaver.Level, path: String, function: String = "") {
         let filter = MinLevelFilter(minLevel: minLevel, path: path, function: function)
         minLevelFilters.append(filter)
@@ -107,14 +113,14 @@ public class BaseDestination: Hashable, Equatable {
     public func addFilter(filter: FilterType) {
         // There can only be a maximum of one level filter in the filters collection.
         // When one is set, remove any others if there are any and then add
-        let isNewLevelFilter = self.getFiltersTargeting(Filter.TargetType.LogLevel(minLevel),
+        let isNewLevelFilter = self.getFiltersTargeting(target: Filter.TargetType.LogLevel(minLevel),
                                                         fromFilters: [filter]).count == 1
         if isNewLevelFilter {
-            let levelFilters = self.getFiltersTargeting(Filter.TargetType.LogLevel(minLevel),
+            let levelFilters = self.getFiltersTargeting(target: Filter.TargetType.LogLevel(minLevel),
                                                         fromFilters: self.filters)
             levelFilters.forEach {
                 filter in
-                self.removeFilter(filter)
+                self.removeFilter(filter: filter)
             }
         }
         filters.append(filter)
@@ -122,7 +128,7 @@ public class BaseDestination: Hashable, Equatable {
 
     /// Remove a filter from the list of filters
     public func removeFilter(filter: FilterType) {
-        let index = filters.indexOf {
+        let index = filters.index {
             return ObjectIdentifier($0) == ObjectIdentifier(filter)
         }
 
@@ -130,13 +136,13 @@ public class BaseDestination: Hashable, Equatable {
             return
         }
 
-        filters.removeAtIndex(filterIndex)
+        filters.remove(at: filterIndex)
     }
 
     /// send / store the formatted log message to the destination
     /// returns the formatted log message for processing by inheriting method
     /// and for unit tests (nil if error)
-    public func send(level: SwiftyBeaver.Level, msg: String, thread: String,
+    public func send(_ level: SwiftyBeaver.Level, msg: String, thread: String,
         path: String, function: String, line: Int) -> String? {
         var dateStr = ""
         var str = ""
@@ -150,20 +156,20 @@ public class BaseDestination: Hashable, Equatable {
     }
 
     /// returns a formatted date string
-    func formattedDate(dateFormat: String) -> String {
+    func formattedDate(_ dateFormat: String) -> String {
         //formatter.timeZone = NSTimeZone(abbreviation: "UTC")
         formatter.dateFormat = dateFormat
-        let dateStr = formatter.stringFromDate(NSDate())
+        let dateStr = formatter.string(from: NSDate() as Date)
         return dateStr
     }
 
     /// returns the log message entirely colored
-    func coloredMessage(msg: String, forLevel level: SwiftyBeaver.Level) -> String {
+    func coloredMessage(_ msg: String, forLevel level: SwiftyBeaver.Level) -> String {
         if !(colored && coloredLines) {
             return msg
         }
 
-        let color = colorForLevel(level)
+        let color = colorForLevel(level: level)
         let coloredMsg = escape + color + msg + reset
         return coloredMsg
     }
@@ -193,9 +199,9 @@ public class BaseDestination: Hashable, Equatable {
     }
 
     /// returns an optionally colored level noun (like INFO, etc.)
-    func formattedLevel(level: SwiftyBeaver.Level) -> String {
+    func formattedLevel(_ level: SwiftyBeaver.Level) -> String {
         // optionally wrap the level string in color
-        let color = colorForLevel(level)
+        let color = colorForLevel(level: level)
         var levelStr = ""
 
         switch level {
@@ -223,7 +229,7 @@ public class BaseDestination: Hashable, Equatable {
     }
 
     /// returns the formatted log message
-    func formattedMessage(dateString: String, levelString: String, msg: String,
+    func formattedMessage(_ dateString: String, levelString: String, msg: String,
         thread: String, path: String, function: String, line: Int, detailOutput: Bool) -> String {
         var str = ""
         if dateString != "" {
@@ -235,8 +241,13 @@ public class BaseDestination: Hashable, Equatable {
             }
 
             // just use the file name of the path and remove suffix
-            let file = path.componentsSeparatedByString("/").last!.componentsSeparatedByString(".").first!
-            str += "\(file).\(function):\(String(line)) \(levelString): \(msg)"
+            //let file = path.components(separatedBy: "/").last!.components(".").first!
+            let pathComponents = path.components(separatedBy: "/")
+            if let lastComponent = pathComponents.last {
+                if let file = lastComponent.components(separatedBy: ".").first {
+                    str += "\(file).\(function):\(String(line)) \(levelString): \(msg)"
+                }
+            }
         } else {
             str += "\(levelString): \(msg)"
         }
@@ -246,18 +257,19 @@ public class BaseDestination: Hashable, Equatable {
     /// Answer whether the destination has any message filters
     /// returns boolean and is used to decide whether to resolve the message before invoking shouldLevelBeLogged
     func hasMessageFilters() -> Bool {
-        return !getFiltersTargeting(Filter.TargetType.Message(.Equals([], true)), fromFilters: self.filters).isEmpty
+        return !getFiltersTargeting(target: Filter.TargetType.Message(.Equals([], true)),
+                                    fromFilters: self.filters).isEmpty
     }
 
     /// checks if level is at least minLevel or if a minLevel filter for that path does exist
     /// returns boolean and can be used to decide if a message should be logged or not
     func shouldLevelBeLogged(level: SwiftyBeaver.Level, path: String, function: String, message: String? = nil) -> Bool {
         guard minLevelFilters.isEmpty else {
-            return shouldLevelBeLoggedUsingMinLevelFilters(level, path: path, function: function)
+            return shouldLevelBeLoggedUsingMinLevelFilters(level: level, path: path, function: function)
         }
 
-        return passesAllRequiredFilters(level, path: path, function: function, message: message) &&
-                passesAtLeastOneNonRequiredFilter(level, path: path, function: function, message: message)
+        return passesAllRequiredFilters(level: level, path: path, function: function, message: message) &&
+            passesAtLeastOneNonRequiredFilter(level: level, path: path, function: function, message: message)
     }
 
     func shouldLevelBeLoggedUsingMinLevelFilters(level: SwiftyBeaver.Level, path: String, function: String) -> Bool {
@@ -270,9 +282,9 @@ public class BaseDestination: Hashable, Equatable {
         for filter in minLevelFilters {
             // rangeOfString returns nil if both values are the same!
             if filter.minLevel.rawValue <= level.rawValue {
-                if filter.path == "" || path == filter.path || path.rangeOfString(filter.path) != nil {
+                if filter.path == "" || path == filter.path || path.range(of: filter.path) != nil {
                     if filter.function == "" || function == filter.function ||
-                            function.rangeOfString(filter.function) != nil {
+                        function.range(of: filter.function) != nil {
                         return true
                     }
                 }
@@ -295,7 +307,7 @@ public class BaseDestination: Hashable, Equatable {
             return filter.isRequired()
         }
 
-        return applyFilters(requiredFilters, level: level, path: path,
+        return applyFilters(targetFilters: requiredFilters, level: level, path: path,
                             function: function, message: message) == requiredFilters.count
     }
 
@@ -307,16 +319,16 @@ public class BaseDestination: Hashable, Equatable {
         }
 
         return nonRequiredFilters.isEmpty ||
-            applyFilters(nonRequiredFilters, level: level, path: path,
+            applyFilters(targetFilters: nonRequiredFilters, level: level, path: path,
                          function: function, message: message) > 0
     }
 
     func passesLogLevelFilters(level: SwiftyBeaver.Level) -> Bool {
-        let logLevelFilters = getFiltersTargeting(Filter.TargetType.LogLevel(level), fromFilters: self.filters)
+        let logLevelFilters = getFiltersTargeting(target: Filter.TargetType.LogLevel(level), fromFilters: self.filters)
         return logLevelFilters.filter {
             filter in
 
-            return filter.apply(level.rawValue)
+            return filter.apply(value: level.rawValue)
         }.count == logLevelFilters.count
     }
 
@@ -329,20 +341,20 @@ public class BaseDestination: Hashable, Equatable {
 
             switch filter.getTarget() {
             case .LogLevel(_):
-                passes = filter.apply(level.rawValue)
+                passes = filter.apply(value: level.rawValue)
 
             case .Path(_):
-                passes = filter.apply(path)
+                passes = filter.apply(value: path)
 
             case .Function(_):
-                passes = filter.apply(function)
+                passes = filter.apply(value: function)
 
             case .Message(_):
                 guard let message = message else {
                     return false
                 }
 
-                passes = filter.apply(message)
+                passes = filter.apply(value: message)
             }
 
             return passes
